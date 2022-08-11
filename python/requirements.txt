@@ -1,0 +1,4 @@
+vectorbt
+yfinance
+seaborn
+matplotlib
