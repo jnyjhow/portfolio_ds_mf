@@ -155,7 +155,11 @@ def pfun_fix_col_names(df):
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
+def pfun_precos_iguais_consecutivos(df):
+  n_zeros = (df.pct_change().dropna() == 0)
+  c = lambda y: y * (y.groupby((y != y.shift()).cumsum()).cumcount() + 1)
+  df_aux = c(n_zeros.unstack()).unstack().T
+  return df_aux.max()
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
