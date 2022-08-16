@@ -6,6 +6,7 @@ import numpy as np
 import plotly.graph_objs as go
 
 from datetime import datetime
+from datetime import date, datetime
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -70,36 +71,51 @@ def pfun_calcular_retorno(df_aux):
 def pfun_gerar_grafico_retorno_pivot(df, filter_asset, tipo_principal='r', tipo_retorno='Mensal', 
                                      tipo_format='.1%', n_aux=0.2):
     
-    if tipo_principal == 'r':
-        titulo_mod = 'Retorno'
-    else:
-        titulo_mod = 'Dividendo'
-        n_aux_min = 0
-        n_aux_max = n_aux * 2
-        n_center = 0
-    
-    if tipo_retorno == 'Anual':
-        titulo_aux = f'Janelas de {titulo_mod} (anual) - {filter_asset}'
+    if filter_asset == 'all':
+        titulo_aux = f'{tipo_principal}: Soma dos Dividendos ({tipo_retorno})'
+        n_aux_min = n_aux - 2
+        n_aux_max = n_aux + 2
+        n_center = n_aux
         
-    elif tipo_retorno == 'anual_real':
-        titulo_aux = f'Janelas de Retorno Reais (base {n_aux}) - {filter_asset}'
-        n_aux_min = n_aux * (1 - 0.3)
-        n_aux_max = n_aux * (1 + 0.5)
+    elif filter_asset == 'all_dy':
+        titulo_aux = f'{tipo_principal}: Dividend Yield ({tipo_retorno})'
+        n_aux_min = n_aux - 3/100
+        n_aux_max = n_aux + 3/100
         n_center = n_aux
         
     else:
-        titulo_aux = f'{titulo_mod} {tipo_retorno} - {filter_asset}'
         
-    if tipo_retorno != 'anual_real':
-        n_aux_min = -n_aux
-        n_aux_max = n_aux
-        n_center = 0
-        
-    if (tipo_retorno == 'Anual' and tipo_principal == 'd'):
-        n_aux_min = 0
-        n_aux_max = n_aux * 20
-        n_center = n_aux * 10
+        if tipo_principal == 'r':
+            titulo_mod = 'Retorno'
+        else:
+            titulo_mod = 'Dividendo'
+            n_aux_min = 0
+            n_aux_max = n_aux * 2
+            n_center = 0
+
+        if tipo_retorno == 'Anual':
+            titulo_aux = f'Janelas de {titulo_mod} (anual) - {filter_asset}'
+
+        elif tipo_retorno == 'anual_real':
+            titulo_aux = f'Janelas de Retorno Reais (base {n_aux}) - {filter_asset}'
+            n_aux_min = n_aux * (1 - 0.3)
+            n_aux_max = n_aux * (1 + 0.5)
+            n_center = n_aux
+
+        else:
+            titulo_aux = f'{titulo_mod} {tipo_retorno} - {filter_asset}'
+
+        if tipo_retorno != 'anual_real':
+            n_aux_min = -n_aux
+            n_aux_max = n_aux
+            n_center = 0
+
+        if (tipo_retorno == 'Anual' and tipo_principal == 'd'):
+            n_aux_min = 0
+            n_aux_max = n_aux * 20
+            n_center = n_aux * 10
     
+    #plotando grafico
     ax = sns.heatmap(df, 
                      annot=True, 
                      fmt=tipo_format, 
@@ -108,17 +124,45 @@ def pfun_gerar_grafico_retorno_pivot(df, filter_asset, tipo_principal='r', tipo_
                      vmax=n_aux_max, 
                      center=n_center, 
                      cbar=False)
-        
+    
+    #atribuindo titulo e configurando opcoes
     ax.set_title(titulo_aux, pad=15, fontdict={'fontsize':20, 'fontweight':600})
     ax.tick_params(axis = 'y', labelright =True, labelrotation=0, labelsize='large')
-    ax.tick_params(axis = 'x', labeltop=True)
+    ax.tick_params(axis = 'x', labeltop=True, labelsize='large')
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 #funcao para gerar df pivot dos dividendos
-def pfun_pivot_dividendos(df, coluna_aux=[], tipo_agg='sum'):
-    df_aux = pd.pivot_table(df, values='dividendos_pagos', index='year', columns=coluna_aux, aggfunc=tipo_agg)
+def pfun_pivot_por_ano(df, values_aux='dividendos_pagos', coluna_aux=[], tipo_agg='sum'):
+    df_aux = pd.pivot_table(df, values=values_aux, index='year', columns=coluna_aux, aggfunc=tipo_agg)
     return(df_aux)
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#funcao para extrair dados do banco central
+def pfun_consulta_bc(codigo_serie, dataInicial='01/01/1900',  dataFinal=date.today().strftime('%d/%m/%Y')):  
+  url = f'http://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo_serie}/dados?formato=json&dataInicial={dataInicial}&dataFinal={dataFinal}'
+  df = pd.read_json(url)
+  df['data'] = pd.to_datetime(df['data'], dayfirst=True)
+  df.set_index('data', inplace=True)
+  return df
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#funcao para retirar ".sa" das colunas
+def pfun_fix_col_names(df):
+  return ['IBOV' if col =='^BVSP' else col.rstrip('.sa') for col in df.columns]
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+def pfun_precos_iguais_consecutivos(df):
+  n_zeros = (df.pct_change().dropna() == 0)
+  c = lambda y: y * (y.groupby((y != y.shift()).cumsum()).cumcount() + 1)
+  df_aux = c(n_zeros.unstack()).unstack().T
+  return df_aux.max()
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
