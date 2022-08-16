@@ -2,3 +2,7 @@ vectorbt
 yfinance
 seaborn
 matplotlib
+bt
+git+https://github.com/quantopian/pyfolio
+PyPortfolioOpt
+finquant
